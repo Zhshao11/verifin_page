@@ -1,0 +1,382 @@
+/* ==========================================================================
+   VeriFin · 示意图 / 动画层
+   与 style.css 配合使用。原则：
+   - 动效只用于"解释机制"，不做装饰性炫技
+   - 全部遵守 prefers-reduced-motion（见 style.css 末尾的全局降级）
+   - 颜色一律走 CSS 变量，保证明暗双主题都成立
+   ========================================================================== */
+
+/* ---- 通用示意图容器 ---- */
+.figure {
+  border: 1px solid var(--line);
+  border-radius: var(--r-lg);
+  background: var(--card);
+  padding: var(--sp-5);
+  overflow: hidden;
+}
+.figure svg { width: 100%; height: auto; display: block; }
+
+/* ---- 示意图的尺寸上下限 ----
+   示意图是 width:100% 等比缩放，容器越窄、内部标注越小。480 宽的图在 435px 的
+   两列窄格里只能压到 0.81 倍，10.5px 的标注实际只剩 8.4px，看不清。
+   策略：① 图上限 520px 并居中 —— 单列时不会无限放大；
+        ② 容器不足 460px 时横向滚动承接 —— 宁可滚一下，不把字缩到读不出来。
+   配合下方把 .capability 的单列断点提到 1100px，桌面常见宽度都不出滚动条。 */
+.fig-scroll > svg { max-width: 520px; margin: 0 auto; }
+@media (max-width: 1180px) {
+  .fig-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+  .fig-scroll > svg { min-width: 460px; }
+}
+
+/* ---- 技术页的宽幅流程图（viewBox 960 宽）----
+   这些图是"整幅一览"的形态，不能像方形图那样居中限宽到 520px（那就太小了）。
+   它们是 960 宽，在 900~1180px 视口里会被压到 0.85 倍以下，10.5px 的标注
+   实际不足 8.5px。给它们独立的下限，容器不够就横向滚动。 */
+.fig-scroll.is-wide > svg { max-width: none; }
+@media (max-width: 1240px) {
+  .fig-scroll.is-wide { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+  .fig-scroll.is-wide > svg { min-width: 900px; }
+}
+.figure-cap {
+  font-size: 12.5px;
+  color: var(--faint);
+  margin-top: var(--sp-4);
+  text-align: center;
+  font-family: var(--f-mono);
+  letter-spacing: .02em;
+}
+
+/* SVG 内部通用：文本走主题色，不硬编码黑 */
+.figure svg text { font-family: var(--f-sans); fill: var(--ink); }
+.figure svg .t-mono { font-family: var(--f-mono); font-variant-numeric: tabular-nums; }
+.figure svg .t-strong { fill: var(--ink-strong); font-weight: 600; }
+.figure svg .t-muted { fill: var(--muted); }
+.figure svg .t-brand { fill: var(--brand); font-weight: 600; }
+.figure svg .s-line { stroke: var(--line-2); fill: none; }
+.figure svg .s-brand { stroke: var(--brand); fill: none; }
+.figure svg .s-ok { stroke: var(--ok); fill: none; }
+.figure svg .s-fail { stroke: var(--fail); fill: none; }
+.figure svg .f-card { fill: var(--card); stroke: var(--line); }
+.figure svg .f-sunken { fill: var(--sunken); }
+.figure svg .f-brand-soft { fill: var(--brand-soft); }
+.figure svg .f-ok-soft { fill: var(--ok-soft); }
+.figure svg .f-fail-soft { fill: var(--fail-soft); }
+
+/* ---- 动画 ①：数据流动（虚线滚动） ---- */
+.flow-dash {
+  stroke-dasharray: 6 7;
+  animation: dashmove 1.4s linear infinite;
+}
+@keyframes dashmove { to { stroke-dashoffset: -26; } }
+
+/* ---- 动画 ②：高亮扫过（定位命中那一行） ---- */
+.sweep {
+  animation: sweep 3.4s var(--ease) infinite;
+}
+@keyframes sweep {
+  0%, 55%, 100% { opacity: 0; }
+  62%, 88% { opacity: 1; }
+}
+
+/* ---- 动画 ③：候选汇聚脉冲 ---- */
+.pulse-dot {
+  animation: pulseDot 2.6s ease-in-out infinite;
+  transform-box: fill-box;
+  transform-origin: center;
+}
+@keyframes pulseDot {
+  0%, 100% { opacity: .35; transform: scale(.8); }
+  50% { opacity: 1; transform: scale(1.15); }
+}
+
+/* ---- 动画 ④：分叉路由（选中的后继亮起） ---- */
+.route-ok { animation: routeOk 4s var(--ease) infinite; }
+@keyframes routeOk {
+  0%, 40%, 100% { opacity: .22; }
+  55%, 85% { opacity: 1; }
+}
+.route-dim {
+  animation: routeDim 4s var(--ease) infinite;
+}
+@keyframes routeDim {
+  0%, 40%, 100% { opacity: .8; }
+  55%, 85% { opacity: .26; }
+}
+/* 同一元素同时要"虚线流动 + 路由明暗"时，两个 animation 简写会互相覆盖，
+   必须用组合写法把两条动画并列声明。 */
+.flow-dash.route-ok  { animation: dashmove 1.4s linear infinite, routeOk 4s var(--ease) infinite; }
+.flow-dash.route-dim { animation: dashmove 1.4s linear infinite, routeDim 4s var(--ease) infinite; }
+
+/* ---- 动画 ⑤：护栏拦截闪动 ---- */
+.intercept {
+  animation: intercept 3.6s var(--ease) infinite;
+}
+@keyframes intercept {
+  0%, 30%, 100% { opacity: 0; stroke-width: 0; }
+  45%, 78% { opacity: 1; }
+}
+
+/* ---- 动画 ⑥：节点呼吸（编排图活动点） ---- */
+.breathe {
+  animation: breathe 3s ease-in-out infinite;
+  transform-box: fill-box;
+  transform-origin: center;
+}
+@keyframes breathe {
+  0%, 100% { opacity: .55; transform: scale(1); }
+  50% { opacity: 1; transform: scale(1.06); }
+}
+.breathe.delay-1 { animation-delay: .5s; }
+.breathe.delay-2 { animation-delay: 1s; }
+.breathe.delay-3 { animation-delay: 1.5s; }
+
+/* ---- 动画 ⑦：天平（勾稽平衡） ---- */
+.balance-beam {
+  animation: balance 4.2s ease-in-out infinite;
+  transform-box: fill-box;
+  transform-origin: center;
+}
+/* 倾角压到 5deg：盘面加宽后，7deg 会让下沉那一侧的盘底撞到下方的 PASS 徽章 */
+@keyframes balance {
+  0%, 100% { transform: rotate(-5deg); }
+  45%, 60% { transform: rotate(0deg); }
+}
+.balance-ok { animation: balanceOk 4.2s var(--ease) infinite; }
+@keyframes balanceOk {
+  0%, 40% { opacity: 0; }
+  60%, 92% { opacity: 1; }
+  100% { opacity: 0; }
+}
+
+/* ---- 动画 ⑧：进度扫光（文档解析） ---- */
+.scan-bar {
+  animation: scanBar 3.6s var(--ease) infinite;
+  transform-box: fill-box;
+  transform-origin: left center;
+}
+@keyframes scanBar {
+  0% { transform: scaleX(0); opacity: 1; }
+  70% { transform: scaleX(1); opacity: 1; }
+  100% { transform: scaleX(1); opacity: 0; }
+}
+
+/* ==========================================================================
+   Hero 双栏
+   ========================================================================== */
+.hero-split {
+  display: grid;
+  grid-template-columns: 1.05fr 1fr;
+  gap: var(--sp-8);
+  align-items: center;
+}
+/* 同 .cap-figure 的坑：grid 子项 min-width:auto 会被内部 svg 的 min-width 顶住，
+   .hero-figure 曾因此宽 494px，右溢部分被 .hero 的 overflow:hidden 静默裁掉。 */
+.hero-split > * { min-width: 0; }
+.hero-split .hero-figure {
+  border: 1px solid var(--line);
+  border-radius: var(--r-lg);
+  background: var(--card);
+  padding: var(--sp-4);
+  box-shadow: var(--shadow-md);
+}
+@media (max-width: 1024px) {
+  .hero-split { grid-template-columns: 1fr; gap: var(--sp-7); }
+}
+
+/* ==========================================================================
+   能力行（左图示 · 右说明，交替）
+   ========================================================================== */
+.capability {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--sp-8);
+  align-items: center;
+  padding: var(--sp-7) 0;
+  border-bottom: 1px solid var(--line);
+}
+.capability:last-child { border-bottom: 0; }
+.capability.flip .cap-figure { order: 2; }
+.capability.flip .cap-body { order: 1; }
+
+.cap-body .cap-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  font-family: var(--f-mono);
+  font-size: 11.5px;
+  font-weight: 700;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+  color: var(--brand);
+  margin-bottom: var(--sp-3);
+}
+.cap-body h3 { font-size: clamp(22px, 2.4vw, 28px); margin-bottom: var(--sp-4); }
+.cap-body p { font-size: 15.5px; color: var(--muted); line-height: 1.75; }
+.cap-body p + p { margin-top: var(--sp-3); }
+.cap-body b { color: var(--ink-strong); font-weight: 600; }
+
+.cap-points {
+  margin-top: var(--sp-5);
+  display: grid;
+  gap: var(--sp-3);
+  list-style: none;
+  padding: 0;
+}
+/* 注意：这里不能用 display:grid 做"圆点 + 文字"两列。
+   li 的内容是「文本 + <b> + 文本」这种混合内联节点，网格会为每一段连续文本、
+   每一个 <b>/<code> 各生成一个网格项自动排布，<b> 就被塞进 20px 的圆点列里
+   竖着排成 200px 高的窄条。改用 padding-left + 绝对定位圆点，内联节点正常成行。 */
+.cap-points li {
+  position: relative;
+  padding-left: 20px;
+  font-size: 14.5px;
+  color: var(--body);
+  line-height: 1.75;
+}
+.cap-points li::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 9px;
+  width: 7px; height: 7px;
+  border-radius: 2px;
+  background: var(--brand);
+}
+.cap-points code {
+  font-family: var(--f-mono);
+  font-size: .88em;
+  background: var(--sunken);
+  border: 1px solid var(--line);
+  border-radius: 5px;
+  padding: 1px 5px;
+  color: var(--ink);
+}
+
+.cap-figure { min-width: 0; }
+
+/* 断点定在 1100px 而不是 900px：900~1100 这个区间仍是两列，但每列只有 380~435px，
+   示意图会被压到 0.7 倍（标注 < 8px）。落到单列后图能拿到整宽并居中限宽，反而更清楚。 */
+@media (max-width: 1100px) {
+  .capability { grid-template-columns: 1fr; gap: var(--sp-6); padding: var(--sp-6) 0; }
+  .capability.flip .cap-figure,
+  .capability.flip .cap-body { order: initial; }
+  /* 单列时示意图居中，不占满整屏宽度 */
+  .cap-figure { max-width: 620px; margin: 0 auto; width: 100%; }
+}
+
+/* ==========================================================================
+   可信性条（数字 + 说明）
+   ========================================================================== */
+.trust-row {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 1px;
+  background: var(--line);
+  border: 1px solid var(--line);
+  border-radius: var(--r-lg);
+  overflow: hidden;
+}
+.trust-cell { background: var(--card); padding: var(--sp-5); }
+.trust-cell .n {
+  font-family: var(--f-serif);
+  font-size: clamp(24px, 2.8vw, 32px);
+  font-weight: 700;
+  color: var(--ink-strong);
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -.02em;
+}
+.trust-cell .n small { font-size: .5em; color: var(--muted); font-weight: 600; }
+.trust-cell .d { font-size: 13px; color: var(--muted); margin-top: 9px; line-height: 1.6; }
+
+@media (max-width: 900px) { .trust-row { grid-template-columns: repeat(2, 1fr); } }
+@media (max-width: 520px) { .trust-row { grid-template-columns: 1fr; } }
+
+/* ==========================================================================
+   技术页：分层架构图
+   ========================================================================== */
+.arch-stack { display: grid; gap: var(--sp-3); }
+.arch-layer {
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  background: var(--card);
+  padding: var(--sp-4) var(--sp-5);
+  display: grid;
+  grid-template-columns: 132px 1fr;
+  gap: var(--sp-5);
+  align-items: center;
+  transition: border-color .2s var(--ease);
+}
+.arch-layer:hover { border-color: var(--brand); }
+.arch-layer .ly {
+  font-family: var(--f-mono);
+  font-size: 11.5px;
+  font-weight: 700;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  color: var(--brand);
+}
+.arch-layer .ly-sub { font-size: 12px; color: var(--faint); margin-top: 3px; font-weight: 400; text-transform: none; letter-spacing: 0; }
+.arch-layer .mods { display: flex; flex-wrap: wrap; gap: 7px; }
+.arch-layer .mod {
+  font-family: var(--f-mono);
+  font-size: 12px;
+  padding: 4px 10px;
+  border-radius: 6px;
+  background: var(--sunken);
+  border: 1px solid var(--line);
+  color: var(--body);
+}
+.arch-layer .mod.hot { background: var(--brand-soft); border-color: rgba(255,106,0,.25); color: var(--brand-deep); font-weight: 600; }
+:root[data-theme="dark"] .arch-layer .mod.hot { color: #ffb98a; }
+
+@media (max-width: 720px) {
+  .arch-layer { grid-template-columns: 1fr; gap: var(--sp-3); }
+}
+
+/* 技术页：小节 */
+.sub-head {
+  margin: var(--sp-8) 0 var(--sp-5);
+  padding-bottom: var(--sp-3);
+  border-bottom: 1px solid var(--line);
+}
+.sub-head h3 { font-size: clamp(20px, 2.2vw, 25px); }
+.sub-head p { font-size: 14.5px; color: var(--muted); margin-top: var(--sp-3); max-width: 780px; }
+
+/* 技术页：代码/结构块 */
+pre.struct {
+  margin: 0;
+  padding: var(--sp-5);
+  background: var(--sunken);
+  border: 1px solid var(--line);
+  border-radius: var(--r-lg);
+  font-family: var(--f-mono);
+  font-size: 12.5px;
+  line-height: 1.75;
+  overflow-x: auto;
+  color: var(--body);
+}
+pre.struct .c-brand { color: var(--brand); font-weight: 600; }
+pre.struct .c-muted { color: var(--faint); }
+
+/* 技术页 Hero 更紧凑 */
+.tech-hero {
+  padding: calc(64px + var(--sp-8)) 0 var(--sp-7);
+  background-image: var(--glow);
+  position: relative;
+}
+.tech-hero h1 { font-size: clamp(30px, 4.4vw, 46px); max-width: 20ch; }
+.tech-hero .sub { font-size: 16.5px; color: var(--muted); max-width: 66ch; margin-top: var(--sp-4); line-height: 1.75; }
+
+/* 返回主页链接 */
+.back-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 14px;
+  color: var(--muted);
+  margin-bottom: var(--sp-5);
+  font-weight: 500;
+}
+.back-link:hover { color: var(--brand); text-decoration: none; }
+.back-link svg { width: 15px; height: 15px; }
